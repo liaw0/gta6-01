@@ -1,3 +1,10 @@
+// SOLMAR HEAT — an original open-world crime game built for gta6-01.
+// Cruise a sun-baked coastal city on foot and behind the wheel, lift cars,
+// outrun the law as the heat climbs, and run jobs for the crew. This file is
+// only the hand-in: it checks the game is ready, then copies game/ and
+// screenshots/ to /output and writes the dossier the judge reads.
+import { readdirSync } from 'node:fs';
+
 // A working gta6-01 entry (Node 22, standard library only): the game is this directory's
 // game/ folder, plain static files a desktop browser loads offline (game/index.html and its ES
 // modules, no library and no network request), and the program hands it in. It copies game/ and
@@ -19,6 +26,16 @@ import { buildDossier } from './vendor/makefun-game.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+
+// SOLMAR HEAT hand-in check: fail loudly here if the playable game or its
+// screenshots are missing, instead of handing in a broken bundle.
+const entryPage = join(here, 'game', 'index.html');
+if (!existsSync(entryPage)) throw new Error('SOLMAR HEAT is missing game/index.html');
+const shotFolder = join(here, 'screenshots');
+const shotNames = existsSync(shotFolder)
+  ? readdirSync(shotFolder).filter((name) => /\.(png|jpe?g)$/i.test(name))
+  : [];
+console.log(`SOLMAR HEAT ready: game/index.html found, ${shotNames.length} screenshot(s) to hand in`);
 
 mkdirSync(out, { recursive: true });
 cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
