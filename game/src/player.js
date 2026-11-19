@@ -194,6 +194,10 @@ export class Player {
       }
     }
     m.rotation.y = car.heading;
+    // the player's logical position rides with the car: police, missions,
+    // the minimap and ped hits all read G.player.x/z, so they must track
+    // the car while driving (not the spot where Rook got in)
+    this.pos.set(m.position.x, 0, m.position.z);
     const spin = car.speed * dt * 2.8;
     for (const w of m.userData.wheels) {
       w.rotation.x += spin;

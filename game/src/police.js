@@ -36,12 +36,20 @@ export class Wanted {
     this.G.audio.siren(false);
   }
 
+  // Cooling state for the HUD heat indicator: are we in the decay window,
+  // and is any cop actually able to see us right now?
+  cooling() {
+    const inWindow = this.G.time - this.lastCrime > 10;
+    return { cooling: this.heat > 0 && inWindow, hidden: !this.G.police.canSeePlayer() };
+  }
+
   update(dt) {
     if (this.heat <= 0) return;
-    // heat decays after 18s without new crime; faster when no cop can see you
-    if (this.G.time - this.lastCrime > 18) {
-      const hidden = this.G.police.nearestDist() > 45;
-      this.heat = Math.max(0, this.heat - dt * (hidden ? 0.22 : 0.08));
+    // heat decays 10s after the last crime; much faster when no cop has
+    // line of sight on you — duck behind a building and the stars melt
+    if (this.G.time - this.lastCrime > 10) {
+      const hidden = !this.G.police.canSeePlayer();
+      this.heat = Math.max(0, this.heat - dt * (hidden ? 0.45 : 0.12));
       const s = Math.ceil(this.heat - 0.001);
       if (s < this.stars) {
         this.stars = s;
@@ -72,6 +80,38 @@ export class Police {
       best = Math.min(best, dist2(p.x, p.z, c.mesh.position.x, c.mesh.position.z));
     }
     return best;
+  }
+
+  // True if any police car has a clear line of sight to the player:
+  // within 70m and no building (city collider) between cop and player.
+  // A 2D segment-vs-AABB slab test in the XZ plane, one new check per cop.
+  canSeePlayer() {
+    const p = this.G.player;
+    const colliders = this.G.city.colliders;
+    for (const c of this.cars) {
+      const ax = c.mesh.position.x, az = c.mesh.position.z;
+      const dx = p.x - ax, dz = p.z - az;
+      const d = Math.sqrt(dx * dx + dz * dz);
+      if (d > 70 || d < 0.01) {
+        if (d < 0.01) return true; // a cop is right on top of you
+        continue;
+      }
+      const invX = 1 / (dx || 1e-6), invZ = 1 / (dz || 1e-6);
+      let blocked = false;
+      for (const b of colliders) {
+        let tmin = 0, tmax = 1;
+        let t1 = (b.minX - ax) * invX, t2 = (b.maxX - ax) * invX;
+        if (t1 > t2) { const t = t1; t1 = t2; t2 = t; }
+        tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+        if (tmin > tmax) continue;
+        t1 = (b.minZ - az) * invZ; t2 = (b.maxZ - az) * invZ;
+        if (t1 > t2) { const t = t1; t1 = t2; t2 = t; }
+        tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+        if (tmin <= tmax) { blocked = true; break; }
+      }
+      if (!blocked) return true;
+    }
+    return false;
   }
 
   spawnOne() {

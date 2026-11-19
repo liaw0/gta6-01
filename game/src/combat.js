@@ -13,6 +13,7 @@ export class Combat {
     this.tracer = null;
     this.tracerLife = 0;
     this.flash = null;
+    this.aimAssist = true; // gentle on-foot magnetism; tests toggle it off for A/B
   }
 
   shootFromCar() {
@@ -37,6 +38,22 @@ export class Combat {
     dir.y += (Math.random() - 0.5) * 0.02;
     dir.z += (Math.random() - 0.5) * 0.02;
     dir.normalize();
+    // Aim assist (on foot only): if a target sits just off the crosshair,
+    // gently bend the shot toward it so close shots feel fair, not random.
+    if (!G.player.inCar && this.aimAssist) {
+      const toTarget = new THREE.Vector3();
+      let best = null, bestAngle = 0.10; // ~5.7 degree cone
+      const consider = (mesh, aimY) => {
+        toTarget.set(mesh.position.x, aimY, mesh.position.z).sub(origin);
+        const dist = toTarget.length();
+        if (dist > 70 || dist < 0.5) return;
+        const ang = dir.angleTo(toTarget.clone().normalize());
+        if (ang < bestAngle) { bestAngle = ang; best = toTarget.clone().normalize(); }
+      };
+      for (const c of [...G.police.cars, ...G.traffic.cars]) consider(c.mesh, 0.9);
+      for (const p of G.peds.peds) consider(p.mesh, 1.2);
+      if (best) dir.lerp(best, 0.4).normalize();
+    }
     const ray = new THREE.Raycaster(origin, dir, 0.1, 120);
     // targets: police cars, traffic cars, pedestrians, buildings
     const targets = [];
@@ -65,6 +82,9 @@ export class Combat {
     const car = [...G.police.cars, ...G.traffic.cars].find(c => c.mesh === root);
     if (car) {
       car.health -= 34;
+      const destroyed = car.health <= 0 && car.isPolice;
+      G.hud.hitmarker(destroyed);
+      G.audio.hit();
       G.hud.feed(car.isPolice ? 'You hit a police cruiser!' : 'You shot a car!');
       if (car.health <= 0 && car.isPolice) {
         car.disabled = true;
@@ -75,6 +95,8 @@ export class Combat {
     }
     const ped = G.peds.peds.find(p => p.mesh === root);
     if (ped) {
+      G.hud.hitmarker(false);
+      G.audio.hit();
       G.peds.scare(point.x, point.z, 30);
       G.wanted.addCrime(0.8);
       G.hud.feed('You shot a civilian! The city saw that.');

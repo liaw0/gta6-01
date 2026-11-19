@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { mulberry32, rand, randInt, pick, clamp, dist2 } from './util.js';
 import { BLOCK, GRID, STREET_W } from './city.js';
 
-const CAR_COLORS = [0xc23b2e, 0x2e6bc2, 0xe8c832, 0x3aa655, 0xe8e8e8, 0x222226, 0x7a4fb5, 0xd87a2e, 0x2eb8a6];
+const CAR_COLORS = [0xc23b2e, 0x2e6bc2, 0xe8c832, 0x3aa655, 0xe8e8e8, 0x222226, 0x7a4fb5, 0xd87a2e, 0x2eb8a6, 0xb03060, 0x4a6b8a, 0xc8b060];
 
 export function createCarMesh(color, kind = 'sedan') {
   const g = new THREE.Group();
@@ -14,7 +14,8 @@ export function createCarMesh(color, kind = 'sedan') {
   const isSport = kind === 'sport';
   const isTaxi = kind === 'taxi';
   const isPolice = kind === 'police';
-  const L = isSport ? 4.6 : 4.2, W = 1.9, H = isSport ? 0.55 : 0.72;
+  const isVan = kind === 'van';
+  const L = isVan ? 5.4 : isSport ? 4.6 : 4.2, W = 1.9, H = isVan ? 1.15 : isSport ? 0.55 : 0.72;
   const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, L), bodyMat);
   body.position.y = 0.55; body.castShadow = true;
   g.add(body);
@@ -39,6 +40,16 @@ export function createCarMesh(color, kind = 'sedan') {
     const sign = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.22, 0.4),
       new THREE.MeshStandardMaterial({ color: 0xffe9a8, emissive: 0xffd166, emissiveIntensity: 0.8 }));
     sign.position.set(0, H + 0.8, -L * 0.08); g.add(sign);
+  }
+  if (isVan) {
+    // tall cargo van: roof rails + a rear window band so it reads as a van, not a sedan
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x222226, roughness: 0.7 });
+    for (const rx of [-0.6, 0.6]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, L * 0.7), railMat);
+      rail.position.set(rx, H + 0.32, 0); g.add(rail);
+    }
+    const rearGlass = new THREE.Mesh(new THREE.BoxGeometry(W * 0.7, 0.5, 0.06), glassMat);
+    rearGlass.position.set(0, H + 0.1, -L / 2 - 0.01); g.add(rearGlass);
   }
   // wheels
   const wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.28, 12);
@@ -73,8 +84,8 @@ export class Traffic {
     this.rng = mulberry32(777);
     this.cars = [];
     this.parked = [];
-    this.spawnTraffic(14);
-    this.spawnParked(12);
+    this.spawnTraffic(26);
+    this.spawnParked(16);
   }
 
   spawnTraffic(n) {
@@ -90,7 +101,7 @@ export class Traffic {
     const pz = horizontal ? street + (rng() < 0.5 ? -3.2 : 3.2) : along;
     const dir = rng() < 0.5 ? 1 : -1;
     const hd = horizontal ? (dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (dir > 0 ? 0 : Math.PI);
-    const kind = rng() < 0.12 ? 'taxi' : 'sedan';
+    const kind = rng() < 0.12 ? 'taxi' : rng() < 0.30 ? 'van' : 'sedan';
     const mesh = createCarMesh(kind === 'taxi' ? 0xe8c832 : pick(rng, CAR_COLORS), kind);
     mesh.position.set(px, 0, pz);
     mesh.rotation.y = hd;
@@ -116,7 +127,7 @@ export class Traffic {
     for (let i = 0; i < n && spots.length; i++) {
       const idx = Math.floor(rng() * spots.length);
       const [x, z] = spots.splice(idx, 1)[0];
-      const kind = rng() < 0.18 ? 'sport' : 'sedan';
+      const kind = rng() < 0.18 ? 'sport' : rng() < 0.38 ? 'van' : 'sedan';
       const mesh = createCarMesh(pick(rng, CAR_COLORS), kind);
       const horizontal = Math.abs(x % BLOCK) > 20;
       mesh.position.set(x, 0, z);

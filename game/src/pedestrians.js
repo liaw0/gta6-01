@@ -4,20 +4,37 @@ import * as THREE from 'three';
 import { mulberry32, rand, randInt, pick, clamp, dist2 } from './util.js';
 import { BLOCK, GRID } from './city.js';
 
-const SHIRTS = [0xe86a5a, 0x5a8ae8, 0x6ab86a, 0xe8c832, 0x9a5ae8, 0xe8e8e8, 0x2e2e34, 0xd87a2e];
-const PANTS = [0x2e3a4a, 0x4a3a2e, 0x222226, 0x5a6b7a];
+const SHIRTS = [0xe86a5a, 0x5a8ae8, 0x6ab86a, 0xe8c832, 0x9a5ae8, 0xe8e8e8, 0x2e2e34, 0xd87a2e, 0x3aa655, 0xc23b6a, 0x7a4fb5, 0x2eb8a6];
+const PANTS = [0x2e3a4a, 0x4a3a2e, 0x222226, 0x5a6b7a, 0x6b4a5a, 0x3a4a2e];
 
 function makePedMesh(rng) {
   const g = new THREE.Group();
   const shirt = new THREE.MeshStandardMaterial({ color: pick(rng, SHIRTS), roughness: 0.9 });
   const pants = new THREE.MeshStandardMaterial({ color: pick(rng, PANTS), roughness: 0.9 });
-  const skin = new THREE.MeshStandardMaterial({ color: pick(rng, [0xe8b88a, 0xc98a5a, 0x8a5a3a, 0xf0c8a0]), roughness: 0.8 });
+  const skin = new THREE.MeshStandardMaterial({ color: pick(rng, [0xe8b88a, 0xc98a5a, 0x8a5a3a, 0xf0c8a0, 0x6b4226, 0xd8a878]), roughness: 0.8 });
   const legs = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.78, 0.26), pants);
   legs.position.y = 0.39; legs.castShadow = true; g.add(legs);
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.62, 0.3), shirt);
   torso.position.y = 1.09; torso.castShadow = true; g.add(torso);
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.32, 0.32), skin);
   head.position.y = 1.56; head.castShadow = true; g.add(head);
+  // one in three pedestrians wears a hat or cap, in a random color
+  if (rng() < 0.34) {
+    const hatMat = new THREE.MeshStandardMaterial({ color: pick(rng, [0xc23b2e, 0x2e6bc2, 0xe8c832, 0x222226, 0xe8e8e8, 0x3aa655]), roughness: 0.85 });
+    if (rng() < 0.5) {
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.12, 0.36), hatMat);
+      cap.position.y = 1.76; g.add(cap);
+      const brim = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.04, 0.16), hatMat);
+      brim.position.set(0, 1.72, 0.22); g.add(brim);
+    } else {
+      const brimHat = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.05, 10), hatMat);
+      brimHat.position.y = 1.74; g.add(brimHat);
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.14, 10), hatMat);
+      crown.position.y = 1.82; g.add(crown);
+    }
+  }
+  // vary height a little so the crowd does not look cloned
+  g.scale.y = 0.92 + rng() * 0.16;
   const armL = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.55, 0.13), shirt);
   armL.position.set(-0.33, 1.08, 0); g.add(armL);
   const armR = armL.clone(); armR.position.x = 0.33; g.add(armR);
@@ -31,7 +48,7 @@ export class Pedestrians {
     this.G = G; this.city = city;
     this.rng = mulberry32(4242);
     this.peds = [];
-    for (let i = 0; i < 22; i++) this.spawn();
+    for (let i = 0; i < 40; i++) this.spawn();
   }
 
   randomSidewalkSpot() {

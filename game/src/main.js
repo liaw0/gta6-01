@@ -17,6 +17,8 @@ import { applyShot } from './shots.js';
 const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot');
 const SEED = Number(params.get('seed') || 1);
+// ?fx=low disables antialiasing + shadows for low-end devices (and headless tests)
+const LOWFX = params.get('fx') === 'low';
 
 const G = {
   time: 0,
@@ -26,10 +28,10 @@ const G = {
 };
 
 // --- renderer / scene ---
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ antialias: !LOWFX, powerPreference: 'high-performance' });
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
-renderer.shadowMap.enabled = true;
+renderer.setPixelRatio(LOWFX ? 1 : Math.min(devicePixelRatio, 1.75));
+renderer.shadowMap.enabled = !LOWFX;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
@@ -176,8 +178,9 @@ addEventListener('keydown', (e) => {
     if (p.inCar) { p.exitCar(); return; }
     const car = G.traffic.nearestCar(p.x, p.z, 4.5, (c) => c.isParked || c.isMission);
     if (car) {
+      const wasStealable = car.isMission || car.isParked; // read before enterCar clears isParked
       p.enterCar(car);
-      if (car.isMission || car.isParked) {
+      if (wasStealable) {
         // stealing a parked car is a crime (unless it's your own mission car you already own — keep it simple: always heat)
         G.wanted.addCrime(0.6);
         G.hud.feed('You stole a car! Someone called it in.');

@@ -9,6 +9,10 @@ export class HUD {
     this.el = {
       hud: document.getElementById('hud'),
       wanted: document.getElementById('wanted'),
+      heat: document.getElementById('heat'),
+      heatfill: document.getElementById('heatfill'),
+      heattext: document.getElementById('heattext'),
+      hitmarker: document.getElementById('hitmarker'),
       money: document.getElementById('money'),
       mission: document.getElementById('mission-label'),
       objective: document.getElementById('objective-text'),
@@ -57,6 +61,17 @@ export class HUD {
     setTimeout(() => { this.el.vignette.style.opacity = '0'; }, 130);
   }
 
+  // Hit marker: a brief X over the crosshair when a shot lands.
+  // Red when the hit destroyed its target (e.g. disabled a cruiser).
+  hitmarker(destroyed) {
+    const m = this.el.hitmarker;
+    if (!m) return;
+    m.classList.toggle('kill', !!destroyed);
+    m.classList.remove('hidden');
+    clearTimeout(this._hmTimer);
+    this._hmTimer = setTimeout(() => m.classList.add('hidden'), 170);
+  }
+
   showInteract(text) {
     this.el.interactText.textContent = text;
     this.el.interact.classList.remove('hidden');
@@ -74,6 +89,19 @@ export class HUD {
         : '<span class="star-off">★</span>';
     }
     this.el.wanted.innerHTML = stars;
+    // heat-cooling indicator: while wanted, show whether the heat is
+    // melting away (no cop can see you) or still hot (spotted / too soon)
+    const cool = G.wanted.cooling();
+    if (G.wanted.heat > 0) {
+      this.el.heat.classList.remove('hidden');
+      this.el.heatfill.style.width = Math.max(0, Math.min(100, (G.wanted.heat / 5) * 100)) + '%';
+      this.el.heatfill.classList.toggle('cooling', cool.cooling && cool.hidden);
+      this.el.heattext.textContent = !cool.cooling
+        ? 'HEAT — stay out of sight…'
+        : cool.hidden ? '❄ COOLING OFF — they lost you' : 'HEAT — a cop can see you!';
+    } else {
+      this.el.heat.classList.add('hidden');
+    }
     this.el.money.textContent = money(G.money);
     this.el.healthfill.style.width = Math.max(0, p.health) + '%';
     this.el.healthtext.textContent = Math.ceil(Math.max(0, p.health));

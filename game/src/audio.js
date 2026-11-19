@@ -80,6 +80,9 @@ export class AudioSys {
     this.blip(140, 0.1, 'square', 0.16);
   }
 
+  // short high tick when a shot connects — the hit-marker sound
+  hit() { this.blip(2400, 0.06, 'sine', 0.14); }
+
   reload() { this.blip(520, 0.05, 'sine', 0.1); setTimeout(() => this.blip(760, 0.05, 'sine', 0.1), 120); }
 
   chime() { this.blip(880, 0.12, 'sine', 0.14); setTimeout(() => this.blip(1318, 0.16, 'sine', 0.14), 110); }
